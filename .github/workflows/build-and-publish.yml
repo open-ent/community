@@ -86,7 +86,7 @@ jobs:
           # buildnumber-maven-plugin (via app-parent) ne resout pas le SCM en CI
           # (checkout shallow/detache) -> on injecte explicitement commit et branche
           # pour remplir SCM-Commit-Id / SCM-Branch du MANIFEST.
-          mvn clean package -DskipTests -B \
+          mvn clean package -DskipTests -B -DbuildNumber=${GITHUB_SHA::8} -DscmBranch=${GITHUB_REF_NAME} \
             -DbuildNumber="${GITHUB_SHA::8}" -DscmBranch="${GITHUB_REF_NAME}"
 
       - name: Run tests
