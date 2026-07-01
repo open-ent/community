@@ -317,9 +317,13 @@ export class Community implements Shareable, Selectable {
     }
 
     setRights() {
+        // Garde : `types` peut être null/undefined pour certaines communautés
+        // renvoyées par /community/list (types non peuplés) -> évite le
+        // "TypeError: Cannot read properties of null (reading 'indexOf')" (#5).
+        const types = this.types || [];
         this.rights.myRights = {
-            manager: this.types.indexOf('manager') !== -1 ? true : undefined,
-            contrib: this.types.indexOf('contrib') !== -1 ? true : undefined,
+            manager: types.indexOf('manager') !== -1 ? true : undefined,
+            contrib: types.indexOf('contrib') !== -1 ? true : undefined,
             read: true
         };
 
