@@ -26,6 +26,10 @@ export function Dashboard() {
     onError: () => setFormError(t('community.create.error', { defaultValue: "La création a échoué." })),
   });
   const deleteMut = useMutation({ mutationFn: (id: string) => api.deleteCommunity(id), onSuccess: invalidate });
+  const updateMut = useMutation({
+    mutationFn: (v: { id: string; name: string; description: string }) => api.updateCommunity(v.id, { name: v.name, description: v.description, icon: '' }),
+    onSuccess: invalidate,
+  });
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -89,6 +93,16 @@ export function Dashboard() {
                   <td className="text-muted">{c.description ?? ''}</td>
                   <td>{highestRole(c.types)}</td>
                   <td className="text-end">
+                    <button
+                      type="button"
+                      className="btn btn-link p-0 me-12"
+                      onClick={() => {
+                        const nom = window.prompt(t('community.rename.prompt', { defaultValue: 'Nouveau nom de la communauté :' }), c.name);
+                        if (nom && nom.trim() && nom.trim() !== c.name) updateMut.mutate({ id: c.id, name: nom.trim(), description: c.description ?? '' });
+                      }}
+                    >
+                      {t('community.rename', { defaultValue: 'Renommer' })}
+                    </button>
                     <button
                       type="button"
                       className="btn btn-link p-0 text-danger"

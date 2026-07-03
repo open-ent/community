@@ -68,10 +68,16 @@ export const createCommunity = async (input: CommunityInput): Promise<{ id: stri
     await fetch(`/community`, { ...baseOpt, method: 'POST', headers: mutHeaders(), body: JSON.stringify(input) }),
   );
 
+/** Met à jour une communauté (PUT /community/:id). */
+export const updateCommunity = async (id: string, input: CommunityInput): Promise<void> => {
+  const res = await fetch(`/community/${id}`, { ...baseOpt, method: 'PUT', headers: mutHeaders(), body: JSON.stringify(input) });
+  if (!res.ok) throw new Error(String(res.status));
+};
+
 /** Supprime une communauté (DELETE /community/:id). */
 export const deleteCommunity = async (id: string): Promise<void> => {
   const res = await fetch(`/community/${id}`, { ...baseOpt, method: 'DELETE', headers: xsrfHeader() });
   if (!res.ok && res.status !== 204) throw new Error(String(res.status));
 };
 
-export const api = { getCommunities, getVisibles, createCommunity, deleteCommunity };
+export const api = { getCommunities, getVisibles, createCommunity, updateCommunity, deleteCommunity };
