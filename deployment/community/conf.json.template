@@ -6,6 +6,7 @@
         "mongodb" : true,
         "app-name" : "Community",
         "app-address" : "/community",
+        "frontend-ui" : "angular",
         "app-icon" : "community-large",
         "app-type" : "END_USER",
         "host": "${host}",
