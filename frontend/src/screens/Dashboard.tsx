@@ -38,7 +38,9 @@ export function Dashboard() {
     createMut.mutate();
   };
 
-  const communities = byLabel(communitiesQuery.data ?? [], (c) => c.name);
+  const [search, setSearch] = useState('');
+  const communities = byLabel(communitiesQuery.data ?? [], (c) => c.name)
+    .filter((c) => c.name.toLowerCase().includes(search.trim().toLowerCase()));
   const groups = useMemo(() => byLabel(visiblesQuery.data?.groups ?? [], (g) => g.name).slice(0, 30), [visiblesQuery.data]);
   const usersCount = visiblesQuery.data?.users.length ?? 0;
   const groupsCount = visiblesQuery.data?.groups.length ?? 0;
@@ -53,6 +55,15 @@ export function Dashboard() {
           {t('community.mine', { defaultValue: 'Mes communautés' })}{' '}
           <span className="text-muted" style={{ fontSize: 14 }}>({communities.length})</span>
         </h2>
+
+        <input
+          type="search"
+          className="form-control mb-12"
+          placeholder={t('community.search', { defaultValue: 'Rechercher une communauté…' })}
+          aria-label={t('community.search', { defaultValue: 'Rechercher une communauté…' })}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
 
         {/* Formulaire de création */}
         <form className="d-flex gap-8 flex-wrap align-items-end mb-12" onSubmit={onSubmit}>
