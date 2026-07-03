@@ -29,6 +29,18 @@ export interface Visibles {
   groups: VisibleGroup[];
 }
 
+/** Corps de POST /community (cf. jsonschema/create.json : name requis). */
+export interface CommunityInput {
+  name: string;
+  description: string;
+  icon: string;
+}
+
+function xsrfHeader(): Record<string, string> {
+  const m = typeof document !== 'undefined' ? document.cookie.match(/XSRF-TOKEN=([^;]+)/) : null;
+  return m ? { 'X-XSRF-TOKEN': decodeURIComponent(m[1]) } : {};
+}
+
 async function json<T>(res: Response): Promise<T> {
   if (!res.ok) throw new Error(String(res.status));
   const text = await res.text();
@@ -36,6 +48,7 @@ async function json<T>(res: Response): Promise<T> {
 }
 
 const baseOpt = { credentials: 'include' as const };
+const mutHeaders = () => ({ 'Content-Type': 'application/json', ...xsrfHeader() });
 
 // ── Lecture ─────────────────────────────────────────────────────────────────────
 /** Communautés de l'utilisateur (200 + [] si aucune). */
@@ -48,4 +61,17 @@ export const getVisibles = async (): Promise<Visibles> => {
   return { users: d?.users ?? [], groups: d?.groups ?? [] };
 };
 
-export const api = { getCommunities, getVisibles };
+// ── Écriture ──────────────────────────────────────────────────────────────────
+/** Crée une communauté (POST /community). Renvoie la communauté créée (dont son id). */
+export const createCommunity = async (input: CommunityInput): Promise<{ id: string }> =>
+  json<{ id: string }>(
+    await fetch(`/community`, { ...baseOpt, method: 'POST', headers: mutHeaders(), body: JSON.stringify(input) }),
+  );
+
+/** Supprime une communauté (DELETE /community/:id). */
+export const deleteCommunity = async (id: string): Promise<void> => {
+  const res = await fetch(`/community/${id}`, { ...baseOpt, method: 'DELETE', headers: xsrfHeader() });
+  if (!res.ok && res.status !== 204) throw new Error(String(res.status));
+};
+
+export const api = { getCommunities, getVisibles, createCommunity, deleteCommunity };
