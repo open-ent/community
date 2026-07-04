@@ -2,6 +2,7 @@ import { useEdificeClient } from '@open-ent/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { FormEvent, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 
 import { api } from '../api';
 import { byLabel, highestRole, plural } from '../utils';
@@ -104,6 +105,9 @@ export function Dashboard() {
                   <td className="text-muted">{c.description ?? ''}</td>
                   <td>{highestRole(c.types)}</td>
                   <td className="text-end">
+                    <Link to={`/${c.id}`} className="btn btn-link p-0 me-12">
+                      {t('community.detail', { defaultValue: 'Détail' })}
+                    </Link>
                     <button
                       type="button"
                       className="btn btn-link p-0 me-12"

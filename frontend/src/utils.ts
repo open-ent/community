@@ -18,3 +18,17 @@ export function highestRole(types?: string[]): string {
 export function plural(n: number, singulier: string, pluriel: string): string {
   return `${n} ${n > 1 ? pluriel : singulier}`;
 }
+
+/** Libellé FR d'un rôle de communauté (read/contrib/manager). */
+export function roleLabel(type: string): string {
+  switch (type) {
+    case 'manager':
+      return 'Gestionnaire';
+    case 'contrib':
+      return 'Contributeur';
+    case 'read':
+      return 'Lecteur';
+    default:
+      return type;
+  }
+}

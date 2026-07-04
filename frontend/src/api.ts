@@ -11,6 +11,38 @@ export interface Community {
   groups?: Array<{ id: string; type: string; name: string }>;
 }
 
+/** Groupe d'une communauté (un par rôle : read / contrib / manager). */
+export interface CommunityGroup {
+  id: string;
+  name: string;
+  type: string;
+}
+
+/** Détail d'une communauté (infos + page + groupes par rôle). */
+export interface CommunityDetails {
+  id: string;
+  name: string;
+  description?: string;
+  icon?: string;
+  pageId?: string;
+  types?: string[];
+  groups?: CommunityGroup[];
+}
+
+/** Membre d'une communauté. */
+export interface CommunityMember {
+  id: string;
+  displayName?: string;
+  username?: string;
+}
+
+/** Membres d'une communauté ventilés par rôle. */
+export interface CommunityMembers {
+  read: CommunityMember[];
+  contrib: CommunityMember[];
+  manager: CommunityMember[];
+}
+
 /** Groupe visible pour le partage. */
 export interface VisibleGroup {
   id: string;
@@ -61,6 +93,16 @@ export const getVisibles = async (): Promise<Visibles> => {
   return { users: d?.users ?? [], groups: d?.groups ?? [] };
 };
 
+/** Détail d'une communauté (infos + groupes par rôle + page). */
+export const getDetails = async (id: string): Promise<CommunityDetails> =>
+  json<CommunityDetails>(await fetch(`/community/${id}/details`, baseOpt));
+
+/** Membres d'une communauté ventilés par rôle (read/contrib/manager). */
+export const getMembers = async (id: string): Promise<CommunityMembers> => {
+  const d = await json<Partial<CommunityMembers>>(await fetch(`/community/${id}/users`, baseOpt));
+  return { read: d?.read ?? [], contrib: d?.contrib ?? [], manager: d?.manager ?? [] };
+};
+
 // ── Écriture ──────────────────────────────────────────────────────────────────
 /** Crée une communauté (POST /community). Renvoie la communauté créée (dont son id). */
 export const createCommunity = async (input: CommunityInput): Promise<{ id: string }> =>
@@ -80,4 +122,4 @@ export const deleteCommunity = async (id: string): Promise<void> => {
   if (!res.ok && res.status !== 204) throw new Error(String(res.status));
 };
 
-export const api = { getCommunities, getVisibles, createCommunity, updateCommunity, deleteCommunity };
+export const api = { getCommunities, getVisibles, getDetails, getMembers, createCommunity, updateCommunity, deleteCommunity };

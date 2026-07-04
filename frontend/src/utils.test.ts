@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { byLabel, highestRole, plural } from './utils';
+import { byLabel, highestRole, plural, roleLabel } from './utils';
 
 describe('byLabel', () => {
   it('trie par clé, insensible casse/accents', () => {
@@ -31,5 +31,16 @@ describe('plural', () => {
     expect(plural(1, 'groupe', 'groupes')).toBe('1 groupe');
     expect(plural(3, 'groupe', 'groupes')).toBe('3 groupes');
     expect(plural(0, 'groupe', 'groupes')).toBe('0 groupe');
+  });
+});
+
+describe('roleLabel', () => {
+  it('traduit les rôles de communauté', () => {
+    expect(roleLabel('manager')).toBe('Gestionnaire');
+    expect(roleLabel('contrib')).toBe('Contributeur');
+    expect(roleLabel('read')).toBe('Lecteur');
+  });
+  it('retombe sur la valeur brute si rôle inconnu', () => {
+    expect(roleLabel('other')).toBe('other');
   });
 });
