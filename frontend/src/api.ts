@@ -103,6 +103,20 @@ export const getMembers = async (id: string): Promise<CommunityMembers> => {
   return { read: d?.read ?? [], contrib: d?.contrib ?? [], manager: d?.manager ?? [] };
 };
 
+/** Lot de gestion des membres d'une communauté (par rôle + suppression). */
+export interface ManageMembers {
+  read?: string[];
+  contrib?: string[];
+  manager?: string[];
+  delete?: string[];
+}
+
+/** Ajoute/retire des membres d'une communauté (PUT /community/:id/users). */
+export const manageMembers = async (id: string, payload: ManageMembers): Promise<void> => {
+  const res = await fetch(`/community/${id}/users`, { ...baseOpt, method: 'PUT', headers: mutHeaders(), body: JSON.stringify(payload) });
+  if (!res.ok) throw new Error(String(res.status));
+};
+
 // ── Écriture ──────────────────────────────────────────────────────────────────
 /** Crée une communauté (POST /community). Renvoie la communauté créée (dont son id). */
 export const createCommunity = async (input: CommunityInput): Promise<{ id: string }> =>
@@ -122,4 +136,4 @@ export const deleteCommunity = async (id: string): Promise<void> => {
   if (!res.ok && res.status !== 204) throw new Error(String(res.status));
 };
 
-export const api = { getCommunities, getVisibles, getDetails, getMembers, createCommunity, updateCommunity, deleteCommunity };
+export const api = { getCommunities, getVisibles, getDetails, getMembers, manageMembers, createCommunity, updateCommunity, deleteCommunity };
