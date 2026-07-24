@@ -39,6 +39,25 @@ jobs:
       - name: Build frontend (Gulp)
         run: node_modules/gulp/bin/gulp.js build
 
+      # [B] IHM React (vue *-react.html -> /community/public/index.js) : sous-projet Vite frontend/
+      # (Node 20, on rebascule depuis Node 10). Paquets prives @open-ent -> auth OPENENT_PACKAGES_TOKEN.
+      # Job unique -> la copie dans resources/public est directement packagee par Maven (fat-mod complet).
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - name: Build frontend React (sous-projet Vite frontend/)
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.OPENENT_PACKAGES_TOKEN }}
+        run: |
+          cd frontend
+          pnpm install --no-frozen-lockfile
+          pnpm build
+          mkdir -p ../src/main/resources/public
+          cp -r dist/public/. ../src/main/resources/public/
+
       # --- Backend (Maven, Java 8) ---
       - uses: actions/setup-java@v4
         with:
