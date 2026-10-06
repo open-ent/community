@@ -80,6 +80,11 @@ jobs:
                 <username>$GITHUB_ACTOR</username>
                 <password>$GITHUB_TOKEN</password>
               </server>
+              <server>
+                <id>pt-releases</id>
+                <username>$NEXUS_USER</username>
+                <password>$NEXUS_PASSWORD</password>
+              </server>
             </servers>
             <profiles>
               <profile>
@@ -103,6 +108,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_ACTOR: ${{ github.actor }}
+          NEXUS_USER: ${{ secrets.NEXUS_USER }}
+          NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
 
       - name: Build fat JAR
         run: |
@@ -132,6 +139,11 @@ jobs:
                 <id>github</id>
                 <username>${env.GITHUB_ACTOR}</username>
                 <password>${env.GITHUB_TOKEN}</password>
+              </server>
+              <server>
+                <id>pt-releases</id>
+                <username>${{ secrets.NEXUS_USER }}</username>
+                <password>${{ secrets.NEXUS_PASSWORD }}</password>
               </server>
             </servers>
           </settings>
