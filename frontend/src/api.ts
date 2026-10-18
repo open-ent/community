@@ -125,7 +125,11 @@ export const createCommunity = async (input: CommunityInput): Promise<{ id: stri
   );
 
 /** Met à jour une communauté (PUT /community/:id). */
-export const updateCommunity = async (id: string, input: CommunityInput): Promise<void> => {
+/**
+ * Les champs absents ne sont pas modifiés (le serveur ne fait `SET` que de ce qui est envoyé) : ne jamais forcer
+ * `icon: ''` pour un simple renommage, cela efface l'icône.
+ */
+export const updateCommunity = async (id: string, input: Partial<CommunityInput>): Promise<void> => {
   const res = await fetch(`/community/${id}`, { ...baseOpt, method: 'PUT', headers: mutHeaders(), body: JSON.stringify(input) });
   if (!res.ok) throw new Error(String(res.status));
 };

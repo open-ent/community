@@ -14,6 +14,11 @@ export function highestRole(types?: string[]): string {
   return types[0];
 }
 
+/** Peut renommer ou supprimer : rôle gestionnaire seulement (les routes serveur le refusent aux autres). */
+export function canManage(types?: string[]): boolean {
+  return !!types?.includes('manager');
+}
+
 /** Comptage « N élément(s) » avec accord du pluriel. */
 export function plural(n: number, singulier: string, pluriel: string): string {
   return `${n} ${n > 1 ? pluriel : singulier}`;

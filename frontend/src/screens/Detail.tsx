@@ -3,11 +3,13 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 
+import { useEdificeClient } from '@open-ent/react';
+
 import { api, CommunityMember } from '../api';
 import { byLabel, roleLabel } from '../utils';
 
 /** Bloc « membres d'un rôle » (Gestionnaires / Contributeurs / Lecteurs), avec retrait. */
-function MemberList({ label, members, onRemove }: { label: string; members: CommunityMember[]; onRemove: (id: string) => void }) {
+function MemberList({ label, members, onRemove, selfId, removeLabel }: { label: string; members: CommunityMember[]; onRemove: (id: string) => void; selfId?: string; removeLabel: string }) {
   return (
     <div className="mb-12">
       <h3 style={{ fontSize: 15 }} className="mb-8">
@@ -20,7 +22,10 @@ function MemberList({ label, members, onRemove }: { label: string; members: Comm
           {members.map((m) => (
             <li key={m.id} className="py-4 border-bottom d-flex justify-content-between align-items-center">
               <span>{m.displayName ?? m.username ?? m.id}</span>
-              <button type="button" className="btn btn-link p-0 text-danger" aria-label={`Retirer ${m.displayName ?? m.id}`} onClick={() => onRemove(m.id)}>×</button>
+              {/* On ne peut pas se retirer soi-même (parité AngularJS : la ligne « Moi » est verrouillée). */}
+              {m.id !== selfId && (
+                <button type="button" className="btn btn-link p-0 text-danger" aria-label={`${removeLabel} ${m.displayName ?? m.id}`} onClick={() => onRemove(m.id)}>×</button>
+              )}
             </li>
           ))}
         </ul>
@@ -36,6 +41,8 @@ function MemberList({ label, members, onRemove }: { label: string; members: Comm
 export function Detail() {
   const { t } = useTranslation(['community', 'common']);
   const { id = '' } = useParams();
+  const { user } = useEdificeClient();
+  const selfId = (user as { userId?: string } | undefined)?.userId;
 
   const qc = useQueryClient();
   const detailsQuery = useQuery({ queryKey: ['community', 'details', id], queryFn: () => api.getDetails(id), enabled: !!id });
@@ -45,20 +52,28 @@ export function Detail() {
   const d = detailsQuery.data;
   const m = membersQuery.data;
 
+  const [actionError, setActionError] = useState('');
   const [userId, setUserId] = useState('');
   const [role, setRole] = useState<'read' | 'contrib' | 'manager'>('read');
   const invalidate = () => qc.invalidateQueries({ queryKey: ['community', 'members', id] });
 
   const inviteMut = useMutation({
     mutationFn: () => api.manageMembers(id, { [role]: [userId] }),
-    onSuccess: () => { setUserId(''); invalidate(); },
+    onSuccess: () => { setUserId(''); setActionError(''); invalidate(); },
+    onError: () => setActionError(t('community.members.error', { defaultValue: "La mise à jour des membres a échoué (droit insuffisant ou erreur du serveur)." })),
   });
   const removeMut = useMutation({
     mutationFn: (uid: string) => api.manageMembers(id, { delete: [uid] }),
-    onSuccess: invalidate,
+    onSuccess: () => { setActionError(''); invalidate(); },
+    onError: () => setActionError(t('community.members.error', { defaultValue: "La mise à jour des membres a échoué (droit insuffisant ou erreur du serveur)." })),
   });
 
-  const users = byLabel(visiblesQuery.data?.users ?? [], (u) => u.username).slice(0, 200);
+  // Le gestionnaire connecté n'est pas proposé à l'invitation (il est déjà membre).
+  const users = byLabel((visiblesQuery.data?.users ?? []).filter((u) => u.id !== selfId), (u) => u.username).slice(0, 200);
+  const askRemove = (uid: string, members: CommunityMember[]) => {
+    const who = members.find((x) => x.id === uid);
+    if (window.confirm(t('community.member.remove.confirm', { defaultValue: 'Retirer [[name]] de la communauté ?', name: who?.displayName ?? who?.username ?? uid }))) removeMut.mutate(uid);
+  };
 
   return (
     <div>
@@ -82,12 +97,14 @@ export function Detail() {
             {/* Membres par rôle */}
             <section className="card p-16 flex-grow-1" style={{ minWidth: 320 }}>
               <h2 style={{ fontSize: 18 }} className="mb-12">{t('community.members', { defaultValue: 'Membres' })}</h2>
+              {actionError && <div className="alert alert-warning" role="alert" data-community-error>{actionError}</div>}
+              {membersQuery.isError && <div className="alert alert-warning" role="alert">{t('community.members.load.error', { defaultValue: 'Impossible de charger les membres.' })}</div>}
               {membersQuery.isLoading && <p>{t('community.loading', { defaultValue: 'Chargement…' })}</p>}
               {m && (
                 <>
-                  <MemberList label={t('community.role.manager', { defaultValue: 'Gestionnaires' })} members={m.manager} onRemove={(uid) => removeMut.mutate(uid)} />
-                  <MemberList label={t('community.role.contrib', { defaultValue: 'Contributeurs' })} members={m.contrib} onRemove={(uid) => removeMut.mutate(uid)} />
-                  <MemberList label={t('community.role.read', { defaultValue: 'Lecteurs' })} members={m.read} onRemove={(uid) => removeMut.mutate(uid)} />
+                  <MemberList label={t('community.role.manager', { defaultValue: 'Gestionnaires' })} members={m.manager} onRemove={(uid) => askRemove(uid, m.manager)} selfId={selfId} removeLabel={t('community.member.remove', { defaultValue: 'Retirer' })} />
+                  <MemberList label={t('community.role.contrib', { defaultValue: 'Contributeurs' })} members={m.contrib} onRemove={(uid) => askRemove(uid, m.contrib)} selfId={selfId} removeLabel={t('community.member.remove', { defaultValue: 'Retirer' })} />
+                  <MemberList label={t('community.role.read', { defaultValue: 'Lecteurs' })} members={m.read} onRemove={(uid) => askRemove(uid, m.read)} selfId={selfId} removeLabel={t('community.member.remove', { defaultValue: 'Retirer' })} />
                 </>
               )}
 

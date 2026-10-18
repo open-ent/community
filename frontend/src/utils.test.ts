@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { byLabel, highestRole, plural, roleLabel } from './utils';
+import { byLabel, canManage, highestRole, plural, roleLabel } from './utils';
 
 describe('byLabel', () => {
   it('trie par clé, insensible casse/accents', () => {
@@ -42,5 +42,13 @@ describe('roleLabel', () => {
   });
   it('retombe sur la valeur brute si rôle inconnu', () => {
     expect(roleLabel('other')).toBe('other');
+  });
+});
+
+describe('canManage', () => {
+  it('seul le gestionnaire peut renommer ou supprimer', () => {
+    expect(canManage(['read', 'manager'])).toBe(true);
+    expect(canManage(['contrib'])).toBe(false);
+    expect(canManage(undefined)).toBe(false);
   });
 });

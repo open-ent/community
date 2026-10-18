@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
 import { api } from '../api';
+import { canManage } from '../utils';
 import { byLabel, highestRole, plural } from '../utils';
 
 /** Tableau de bord Communautés : mes communautés (créer/supprimer) + annuaire des destinataires visibles. */
@@ -26,10 +27,14 @@ export function Dashboard() {
     onSuccess: () => { setName(''); setDescription(''); setFormError(''); invalidate(); },
     onError: () => setFormError(t('community.create.error', { defaultValue: "La création a échoué." })),
   });
-  const deleteMut = useMutation({ mutationFn: (id: string) => api.deleteCommunity(id), onSuccess: invalidate });
+  // Échec d'une action (suppression, renommage) : message visible — avant, un 403 passait sans rien afficher.
+  const [actionError, setActionError] = useState('');
+  const failAction = () => setActionError(t('community.action.error', { defaultValue: "L'action a échoué (droit insuffisant ou erreur du serveur)." }));
+  const deleteMut = useMutation({ mutationFn: (id: string) => api.deleteCommunity(id), onSuccess: () => { setActionError(''); invalidate(); }, onError: failAction });
   const updateMut = useMutation({
-    mutationFn: (v: { id: string; name: string; description: string }) => api.updateCommunity(v.id, { name: v.name, description: v.description, icon: '' }),
-    onSuccess: invalidate,
+    mutationFn: (v: { id: string; name: string; description: string }) => api.updateCommunity(v.id, { name: v.name, description: v.description }),
+    onSuccess: () => { setActionError(''); invalidate(); },
+    onError: failAction,
   });
 
   const onSubmit = (e: FormEvent) => {
@@ -82,8 +87,14 @@ export function Dashboard() {
         </form>
         {formError && <div className="alert alert-warning" role="alert">{formError}</div>}
 
+        {actionError && <div className="alert alert-warning" role="alert" data-community-error>{actionError}</div>}
+        {communitiesQuery.isError && (
+          <div className="alert alert-warning" role="alert">
+            {t('community.list.error', { defaultValue: 'Impossible de charger vos communautés.' })}
+          </div>
+        )}
         {communitiesQuery.isLoading && <p>{t('community.loading', { defaultValue: 'Chargement…' })}</p>}
-        {!communitiesQuery.isLoading && communities.length === 0 && (
+        {!communitiesQuery.isLoading && !communitiesQuery.isError && communities.length === 0 && (
           <p className="text-muted">
             {t('community.mine.empty', { defaultValue: "Vous n'êtes membre d'aucune communauté pour le moment." })}
           </p>
@@ -108,6 +119,8 @@ export function Dashboard() {
                     <Link to={`/${c.id}`} className="btn btn-link p-0 me-12">
                       {t('community.detail', { defaultValue: 'Détail' })}
                     </Link>
+                    {canManage(c.types) && (
+                    <>
                     <button
                       type="button"
                       className="btn btn-link p-0 me-12"
@@ -127,6 +140,8 @@ export function Dashboard() {
                     >
                       {t('community.delete', { defaultValue: 'Supprimer' })}
                     </button>
+                    </>
+                    )}
                   </td>
                 </tr>
               ))}
