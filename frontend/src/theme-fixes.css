@@ -7,3 +7,26 @@
 .btn-link:focus {
   color: var(--bs-link-hover-color, #0a58ca);
 }
+
+/* Bandeau (thème 1d) : au-delà de md, le menu du compte (communauté, recherche, mon compte, déconnexion) est
+   une rangée dans la barre colorée. Le thème 1d n'y pose ni la couleur blanche des icônes ni le masquage des
+   libellés (règles neo `.icon` / `.nav-text`) : les icônes sortaient en gris foncé sur le fond du bandeau,
+   libellé affiché sous chaque icône. */
+@media (min-width: 768px) {
+  #dropdown-navbar.dropdown-menu .nav-link,
+  #dropdown-navbar.dropdown-menu .dropdown-item,
+  #dropdown-navbar.dropdown-menu .icon {
+    color: #fff !important;
+  }
+  #dropdown-navbar.dropdown-menu .nav-text {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    margin: -1px !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+  }
+}
