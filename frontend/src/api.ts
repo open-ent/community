@@ -61,6 +61,15 @@ export interface Visibles {
   groups: VisibleGroup[];
 }
 
+/** Réponse de POST /community : identifiant, page (site) de la communauté et groupes par rôle. */
+export interface CreatedCommunity {
+  id: string;
+  pageId?: string;
+  read?: string;
+  contrib?: string;
+  manager?: string;
+}
+
 /** Corps de POST /community (cf. jsonschema/create.json : name requis). */
 export interface CommunityInput {
   name: string;
@@ -80,6 +89,27 @@ async function json<T>(res: Response): Promise<T> {
 }
 
 const baseOpt = { credentials: 'include' as const };
+
+/** PUT en formulaire (`application/x-www-form-urlencoded`) : format attendu par `PUT /<app>/share/json/:id`. */
+export async function putForm(url: string, fields: Record<string, string | string[]>): Promise<void> {
+  const body = new URLSearchParams();
+  for (const [k, v] of Object.entries(fields)) (Array.isArray(v) ? v : [v]).forEach((x) => body.append(k, x));
+  const res = await fetch(url, { ...baseOpt, method: 'PUT', headers: { 'Content-Type': 'application/x-www-form-urlencoded', ...xsrfHeader() }, body });
+  if (!res.ok) throw new Error(`PUT ${url} : ${res.status}`);
+}
+
+/** Requête JSON générique (session ENT + XSRF) : sert aux appels vers les autres applications (blog, wiki, forum…). */
+export async function jsonRequest<T>(method: 'GET' | 'POST' | 'PUT', url: string, body?: unknown): Promise<T> {
+  const res = await fetch(url, {
+    ...baseOpt,
+    method,
+    headers: method === 'GET' ? undefined : { 'Content-Type': 'application/json', ...xsrfHeader() },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`${method} ${url} : ${res.status}`);
+  const text = await res.text();
+  return (text ? JSON.parse(text) : null) as T;
+}
 const mutHeaders = () => ({ 'Content-Type': 'application/json', ...xsrfHeader() });
 
 // ── Lecture ─────────────────────────────────────────────────────────────────────
@@ -119,8 +149,8 @@ export const manageMembers = async (id: string, payload: ManageMembers): Promise
 
 // ── Écriture ──────────────────────────────────────────────────────────────────
 /** Crée une communauté (POST /community). Renvoie la communauté créée (dont son id). */
-export const createCommunity = async (input: CommunityInput): Promise<{ id: string }> =>
-  json<{ id: string }>(
+export const createCommunity = async (input: CommunityInput): Promise<CreatedCommunity> =>
+  json<CreatedCommunity>(
     await fetch(`/community`, { ...baseOpt, method: 'POST', headers: mutHeaders(), body: JSON.stringify(input) }),
   );
 

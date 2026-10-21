@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
 import { api } from '../api';
+import { applyServices, availableServices, buildTexts, getWorkflows, ServiceName } from '../services';
 import { canManage } from '../utils';
 import { byLabel, highestRole, plural } from '../utils';
 
@@ -22,10 +23,43 @@ export function Dashboard() {
   const [formError, setFormError] = useState('');
   const invalidate = () => qc.invalidateQueries({ queryKey: ['community', 'list'] });
 
+  // Services de la nouvelle communauté (l'accueil est obligatoire) : seuls ceux que l'utilisateur peut créer sont proposés
+  const workflowsQuery = useQuery({ queryKey: ['community', 'workflows'], queryFn: getWorkflows, retry: false });
+  const offered = availableServices(workflowsQuery.data ?? new Set()).filter((s) => !s.mandatory);
+  const [chosen, setChosen] = useState<ServiceName[]>([]);
+  const [homeMessage, setHomeMessage] = useState('');
+  const tr = (key: string) => t(key, { defaultValue: key }) as string;
+
   const createMut = useMutation({
-    mutationFn: () => api.createCommunity({ name: name.trim(), description: description.trim(), icon: '' }),
-    onSuccess: () => { setName(''); setDescription(''); setFormError(''); invalidate(); },
-    onError: () => setFormError(t('community.create.error', { defaultValue: "La création a échoué." })),
+    mutationFn: async () => {
+      const created = await api.createCommunity({ name: name.trim(), description: description.trim(), icon: '' });
+      // Page d'accueil + services choisis ; un échec ici laisse la communauté créée (on prévient l'utilisateur)
+      if (created.pageId) {
+        const groups = [
+          { id: created.read, type: 'read' },
+          { id: created.contrib, type: 'contrib' },
+          { id: created.manager, type: 'manager' },
+        ].filter((g): g is { id: string; type: string } => !!g.id);
+        try {
+          await applyServices({
+            pageId: created.pageId,
+            active: ['home', ...chosen],
+            context: { name: name.trim(), description: description.trim(), icon: '', homeMessage: homeMessage.trim() || tr('community.services.home.message.placeholder') },
+            texts: buildTexts(tr, name.trim()),
+            groups,
+          });
+        } catch {
+          throw new Error('services');
+        }
+      }
+    },
+    onSuccess: () => { setName(''); setDescription(''); setChosen([]); setHomeMessage(''); setFormError(''); invalidate(); },
+    onError: (e) => {
+      invalidate();
+      setFormError(e instanceof Error && e.message === 'services'
+        ? t('community.create.services.error', { defaultValue: "La communauté est créée, mais ses services n'ont pas pu être mis en place. Ouvrez-la pour réessayer." })
+        : t('community.create.error', { defaultValue: "La création a échoué." }));
+    },
   });
   // Échec d'une action (suppression, renommage) : message visible — avant, un 403 passait sans rien afficher.
   const [actionError, setActionError] = useState('');
@@ -81,6 +115,27 @@ export function Dashboard() {
             <label htmlFor="comm-desc" className="form-label">{t('community.description', { defaultValue: 'Description' })}</label>
             <input id="comm-desc" className="form-control" value={description} onChange={(e) => setDescription(e.target.value)} />
           </div>
+          <fieldset className="w-100 mt-8" data-community-services>
+            <legend style={{ fontSize: 15 }} className="mb-4">{t('community.services.title', { defaultValue: 'Services de la communauté' })}</legend>
+            <p className="text-muted mb-8" style={{ fontSize: 13 }}>{tr('community.services.directions')}</p>
+            <div className="d-flex gap-16 flex-wrap mb-8">
+              <label className="d-flex align-items-center gap-4">
+                <input type="checkbox" checked disabled /> {tr('community.services.home.name')}
+              </label>
+              {offered.map((svc) => (
+                <label key={svc.name} className="d-flex align-items-center gap-4">
+                  <input
+                    type="checkbox"
+                    checked={chosen.includes(svc.name)}
+                    onChange={(e) => setChosen((prev) => (e.target.checked ? [...prev, svc.name] : prev.filter((n) => n !== svc.name)))}
+                  />{' '}
+                  {tr(`community.services.${svc.name}.name`)}
+                </label>
+              ))}
+            </div>
+            <label htmlFor="comm-home" className="form-label">{tr('community.services.home.message.label')}</label>
+            <textarea id="comm-home" className="form-control mb-8" rows={2} value={homeMessage} onChange={(e) => setHomeMessage(e.target.value)} />
+          </fieldset>
           <button type="submit" className="btn btn-primary" disabled={createMut.isPending}>
             {t('community.create', { defaultValue: 'Créer la communauté' })}
           </button>

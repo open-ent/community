@@ -1,12 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 
 import { useEdificeClient } from '@open-ent/react';
 
 import { api, CommunityMember } from '../api';
-import { byLabel, roleLabel } from '../utils';
+import { applyServices, availableServices, buildTexts, CommunityPage, getWorkflows, ServiceName, SERVICES } from '../services';
+import { jsonRequest } from '../api';
+import { byLabel, canManage, roleLabel } from '../utils';
 
 /** Bloc « membres d'un rôle » (Gestionnaires / Contributeurs / Lecteurs), avec retrait. */
 function MemberList({ label, members, onRemove, selfId, removeLabel }: { label: string; members: CommunityMember[]; onRemove: (id: string) => void; selfId?: string; removeLabel: string }) {
@@ -51,6 +53,34 @@ export function Detail() {
 
   const d = detailsQuery.data;
   const m = membersQuery.data;
+
+  // ── Services de la communauté (une page par service) ──────────────────────────────────────────────────────────
+  const pageId = d?.pageId;
+  const pagesQuery = useQuery({ queryKey: ['community', 'pages', pageId], queryFn: () => jsonRequest<{ pages?: CommunityPage[] }>('GET', `/community/pages/${pageId}`), enabled: !!pageId });
+  const workflowsQuery = useQuery({ queryKey: ['community', 'workflows'], queryFn: getWorkflows, retry: false });
+  const existingServices = (pagesQuery.data?.pages ?? []).map((p) => p.titleLink);
+  const [activeServices, setActiveServices] = useState<ServiceName[] | null>(null);
+  useEffect(() => {
+    if (pagesQuery.data && activeServices === null) setActiveServices(['home', ...(existingServices.filter((n) => ['blog', 'documents', 'wiki', 'forum'].includes(n)) as ServiceName[])]);
+  }, [pagesQuery.data, activeServices, existingServices]);
+  const tr = (key: string) => t(key, { defaultValue: key }) as string;
+  const manager = canManage(d?.types);
+  // Services proposés : ceux dont on a le droit de créer la ressource, plus ceux déjà présents (qu'on peut retirer)
+  const offered = SERVICES.filter((svc) => !svc.mandatory && (existingServices.includes(svc.name) || availableServices(workflowsQuery.data ?? new Set()).includes(svc)));
+  const servicesMut = useMutation({
+    mutationFn: async () => {
+      const home = (pagesQuery.data?.pages ?? []).find((p) => p.titleLink === 'home')?.source?.source as { content?: string } | undefined;
+      await applyServices({
+        pageId: pageId!,
+        active: activeServices ?? ['home'],
+        context: { name: d!.name, description: d!.description, icon: d!.icon, homeMessage: home?.content ?? tr('community.services.home.message.placeholder') },
+        texts: buildTexts(tr, d!.name),
+        groups: (d!.groups ?? []).map((g) => ({ id: g.id, type: g.type })),
+      });
+    },
+    onSuccess: () => { setActionError(''); setActiveServices(null); qc.invalidateQueries({ queryKey: ['community', 'pages', pageId] }); },
+    onError: () => setActionError(t('community.services.error', { defaultValue: "La mise à jour des services a échoué (droit insuffisant ou erreur du serveur)." })),
+  });
 
   const [actionError, setActionError] = useState('');
   const [userId, setUserId] = useState('');
@@ -148,6 +178,28 @@ export function Detail() {
                 </ul>
               ) : (
                 <p className="text-muted">—</p>
+              )}
+
+              {manager && pageId && activeServices && (
+                <div className="mb-16" data-community-services-manage>
+                  <h3 style={{ fontSize: 15 }} className="mb-8">{tr('community.services.title')}</h3>
+                  <div className="d-flex gap-16 flex-wrap mb-8">
+                    <label className="d-flex align-items-center gap-4"><input type="checkbox" checked disabled /> {tr('community.services.home.name')}</label>
+                    {offered.map((svc) => (
+                      <label key={svc.name} className="d-flex align-items-center gap-4">
+                        <input
+                          type="checkbox"
+                          checked={activeServices.includes(svc.name)}
+                          onChange={(e) => setActiveServices((prev) => (e.target.checked ? [...(prev ?? []), svc.name] : (prev ?? []).filter((n) => n !== svc.name)))}
+                        />{' '}
+                        {tr(`community.services.${svc.name}.name`)}
+                      </label>
+                    ))}
+                  </div>
+                  <button type="button" className="btn btn-primary" disabled={servicesMut.isPending} onClick={() => servicesMut.mutate()}>
+                    {t('community.services.apply', { defaultValue: 'Appliquer les services' })}
+                  </button>
+                </div>
               )}
 
               {d.pageId && (
