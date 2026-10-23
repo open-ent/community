@@ -6,6 +6,7 @@ import {
   useEdificeClient,
 } from '@open-ent/react';
 import { Outlet } from 'react-router-dom';
+import { UiSwitchFab } from '../components/UiSwitchFab';
 
 /** Gabarit commun : bandeau ENT (Layout + AppHeader + fil d'Ariane) + contenu. */
 export function Root() {
@@ -24,6 +25,7 @@ export function Root() {
           </div>
         </div>
       </Layout>
+      <UiSwitchFab />
     </div>
   );
 }
