@@ -5,9 +5,10 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
 import { api } from '../api';
+import { IconPicker } from '../components/IconPicker';
 import { applyServices, availableServices, buildTexts, getWorkflows, ServiceName } from '../services';
 import { canManage } from '../utils';
-import { byLabel, highestRole, plural } from '../utils';
+import { byLabel, highestRole, iconSrc, plural } from '../utils';
 
 /** Tableau de bord Communautés : mes communautés (créer/supprimer) + annuaire des destinataires visibles. */
 export function Dashboard() {
@@ -20,6 +21,7 @@ export function Dashboard() {
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [icon, setIcon] = useState('');
   const [formError, setFormError] = useState('');
   const invalidate = () => qc.invalidateQueries({ queryKey: ['community', 'list'] });
 
@@ -32,7 +34,7 @@ export function Dashboard() {
 
   const createMut = useMutation({
     mutationFn: async () => {
-      const created = await api.createCommunity({ name: name.trim(), description: description.trim(), icon: '' });
+      const created = await api.createCommunity({ name: name.trim(), description: description.trim(), icon });
       // Page d'accueil + services choisis ; un échec ici laisse la communauté créée (on prévient l'utilisateur)
       if (created.pageId) {
         const groups = [
@@ -44,7 +46,7 @@ export function Dashboard() {
           await applyServices({
             pageId: created.pageId,
             active: ['home', ...chosen],
-            context: { name: name.trim(), description: description.trim(), icon: '', homeMessage: homeMessage.trim() || tr('community.services.home.message.placeholder') },
+            context: { name: name.trim(), description: description.trim(), icon, homeMessage: homeMessage.trim() || tr('community.services.home.message.placeholder') },
             texts: buildTexts(tr, name.trim()),
             groups,
           });
@@ -53,7 +55,7 @@ export function Dashboard() {
         }
       }
     },
-    onSuccess: () => { setName(''); setDescription(''); setChosen([]); setHomeMessage(''); setFormError(''); invalidate(); },
+    onSuccess: () => { setName(''); setDescription(''); setIcon(''); setChosen([]); setHomeMessage(''); setFormError(''); invalidate(); },
     onError: (e) => {
       invalidate();
       setFormError(e instanceof Error && e.message === 'services'
@@ -115,6 +117,10 @@ export function Dashboard() {
             <label htmlFor="comm-desc" className="form-label">{t('community.description', { defaultValue: 'Description' })}</label>
             <input id="comm-desc" className="form-control" value={description} onChange={(e) => setDescription(e.target.value)} />
           </div>
+          <div className="w-100">
+            <span className="form-label d-block">{t('community.icon', { defaultValue: 'Icône' })}</span>
+            <IconPicker value={icon} onChange={setIcon} />
+          </div>
           <fieldset className="w-100 mt-8" data-community-services>
             <legend style={{ fontSize: 15 }} className="mb-4">{t('community.services.title', { defaultValue: 'Services de la communauté' })}</legend>
             <p className="text-muted mb-8" style={{ fontSize: 13 }}>{tr('community.services.directions')}</p>
@@ -167,7 +173,10 @@ export function Dashboard() {
             <tbody>
               {communities.map((c) => (
                 <tr key={c.id}>
-                  <td>{c.name}</td>
+                  <td>
+                    {c.icon && <img src={iconSrc(c.icon)} alt="" width={24} height={24} style={{ objectFit: 'cover', borderRadius: 4, marginRight: 8, verticalAlign: 'middle' }} />}
+                    {c.name}
+                  </td>
                   <td className="text-muted">{c.description ?? ''}</td>
                   <td>{highestRole(c.types)}</td>
                   <td className="text-end">

@@ -6,9 +6,10 @@ import { Link, useParams } from 'react-router-dom';
 import { useEdificeClient } from '@open-ent/react';
 
 import { api, CommunityMember } from '../api';
+import { IconPicker } from '../components/IconPicker';
 import { applyServices, availableServices, buildTexts, CommunityPage, getWorkflows, ServiceName, SERVICES } from '../services';
 import { jsonRequest } from '../api';
-import { byLabel, canManage, roleLabel } from '../utils';
+import { byLabel, canManage, iconSrc, roleLabel } from '../utils';
 
 /** Bloc « membres d'un rôle » (Gestionnaires / Contributeurs / Lecteurs), avec retrait. */
 function MemberList({ label, members, onRemove, selfId, removeLabel }: { label: string; members: CommunityMember[]; onRemove: (id: string) => void; selfId?: string; removeLabel: string }) {
@@ -82,6 +83,17 @@ export function Detail() {
     onError: () => setActionError(t('community.services.error', { defaultValue: "La mise à jour des services a échoué (droit insuffisant ou erreur du serveur)." })),
   });
 
+  // ── Propriétés (nom, description, icône) : réservées aux gestionnaires ─────────────────────────────────────────
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState({ name: '', description: '', icon: '' });
+  const startEdit = () => { setDraft({ name: d?.name ?? '', description: d?.description ?? '', icon: d?.icon ?? '' }); setEditing(true); };
+  const propsMut = useMutation({
+    // Les trois champs sont envoyés tels quels : une icône retirée (chaîne vide) est un choix, pas un oubli.
+    mutationFn: () => api.updateCommunity(id, { name: draft.name.trim(), description: draft.description.trim(), icon: draft.icon }),
+    onSuccess: () => { setActionError(''); setEditing(false); qc.invalidateQueries({ queryKey: ['community', 'details', id] }); qc.invalidateQueries({ queryKey: ['community', 'list'] }); },
+    onError: () => setActionError(t('community.properties.error', { defaultValue: "L'enregistrement des propriétés a échoué (droit insuffisant ou erreur du serveur)." })),
+  });
+
   const [actionError, setActionError] = useState('');
   const [userId, setUserId] = useState('');
   const [role, setRole] = useState<'read' | 'contrib' | 'manager'>('read');
@@ -120,8 +132,38 @@ export function Detail() {
 
       {d && (
         <>
-          <h1 className="mb-8">{d.name}</h1>
+          <div className="d-flex align-items-center gap-12 mb-8">
+            {d.icon && <img src={iconSrc(d.icon)} alt="" width={48} height={48} style={{ objectFit: 'cover', borderRadius: 8 }} data-community-icon />}
+            <h1 className="mb-0">{d.name}</h1>
+            {manager && !editing && (
+              <button type="button" className="btn btn-secondary btn-sm" onClick={startEdit} data-community-edit>
+                {t('community.properties.edit', { defaultValue: 'Modifier les propriétés' })}
+              </button>
+            )}
+          </div>
           {d.description && <p className="text-muted mb-16">{d.description}</p>}
+          {manager && editing && (
+            <form
+              className="card p-16 mb-16"
+              data-community-properties
+              onSubmit={(e) => { e.preventDefault(); if (draft.name.trim()) propsMut.mutate(); }}
+            >
+              <label htmlFor="prop-name" className="form-label">{t('community.name', { defaultValue: 'Nom' })}</label>
+              <input id="prop-name" className="form-control mb-8" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
+              <label htmlFor="prop-desc" className="form-label">{t('community.description', { defaultValue: 'Description' })}</label>
+              <textarea id="prop-desc" className="form-control mb-8" rows={3} value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} />
+              <span className="form-label d-block">{t('community.icon', { defaultValue: 'Icône' })}</span>
+              <div className="mb-12"><IconPicker value={draft.icon} onChange={(icon) => setDraft({ ...draft, icon })} /></div>
+              <div className="d-flex gap-8">
+                <button type="submit" className="btn btn-primary" disabled={propsMut.isPending || !draft.name.trim()} data-community-save>
+                  {t('community.properties.save', { defaultValue: 'Enregistrer' })}
+                </button>
+                <button type="button" className="btn btn-secondary" onClick={() => setEditing(false)}>
+                  {t('community.cancel', { defaultValue: 'Annuler' })}
+                </button>
+              </div>
+            </form>
+          )}
 
           <div className="d-flex gap-16 flex-wrap align-items-start">
             {/* Membres par rôle */}

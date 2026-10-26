@@ -37,3 +37,17 @@ export function roleLabel(type: string): string {
       return type;
   }
 }
+
+/** Adresse d'affichage de l'icône d'une communauté : vignette 150×150 d'un document de l'espace documentaire ; vide si aucune. */
+export function iconSrc(icon?: string): string {
+  if (!icon) return '';
+  return icon.includes('?') ? icon : `${icon}?thumbnail=150x150`;
+}
+
+/**
+ * Adresse à enregistrer pour un document choisi dans la médiathèque. Public (`/workspace/pub/document/`), il reste
+ * lisible par tous les membres ; protégé, seul son propriétaire le verrait.
+ */
+export function iconPath(docId: string, isPublic: boolean): string {
+  return `${isPublic ? '/workspace/pub/document/' : '/workspace/document/'}${docId}`;
+}

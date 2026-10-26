@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, test } from 'vitest';
 
-import { byLabel, canManage, highestRole, plural, roleLabel } from './utils';
+import { byLabel, canManage, highestRole, iconPath, iconSrc, plural, roleLabel } from './utils';
 
 describe('byLabel', () => {
   it('trie par clé, insensible casse/accents', () => {
@@ -50,5 +50,18 @@ describe('canManage', () => {
     expect(canManage(['read', 'manager'])).toBe(true);
     expect(canManage(['contrib'])).toBe(false);
     expect(canManage(undefined)).toBe(false);
+  });
+});
+
+describe('icône de communauté', () => {
+  test('iconSrc : vignette pour un document, vide sans icône, adresse déjà paramétrée conservée', () => {
+    expect(iconSrc('/workspace/pub/document/abc')).toBe('/workspace/pub/document/abc?thumbnail=150x150');
+    expect(iconSrc('/workspace/document/abc?thumbnail=48x48')).toBe('/workspace/document/abc?thumbnail=48x48');
+    expect(iconSrc('')).toBe('');
+    expect(iconSrc(undefined)).toBe('');
+  });
+  test('iconPath : public ou protégé', () => {
+    expect(iconPath('abc', true)).toBe('/workspace/pub/document/abc');
+    expect(iconPath('abc', false)).toBe('/workspace/document/abc');
   });
 });
