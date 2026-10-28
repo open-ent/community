@@ -54,17 +54,17 @@ public class DefaultCommunityService implements CommunityService {
 	@Override
 	public void create(JsonObject data, UserInfos user, Handler<Either<String, JsonObject>> handler) {
 		String query =
-				"CREATE (c:Community {props}), " +
-				"c<-[:DEPENDS]-(cr:CommunityGroup:Group:Visible {name : c.name + '-read', type : 'read', displayNameSearchField: {dnsf}, filter : 'CommunityRead'}), " +
-				"c<-[:DEPENDS]-(cc:CommunityGroup:Group:Visible {name : c.name + '-contrib', type : 'contrib', users : '', displayNameSearchField: {dnsf}, filter : 'CommunityContrib'}), " +
-				"c<-[:DEPENDS]-(cm:CommunityGroup:Group:Visible {name : c.name + '-manager', type : 'manager', users : '', displayNameSearchField: {dnsf}, filter : 'CommunityManager'}) " +
+				"CREATE (c:Community $props), " +
+				"(c)<-[:DEPENDS]-(cr:CommunityGroup:Group:Visible {name : c.name + '-read', type : 'read', displayNameSearchField: $dnsf, filter : 'CommunityRead'}), " +
+				"(c)<-[:DEPENDS]-(cc:CommunityGroup:Group:Visible {name : c.name + '-contrib', type : 'contrib', users : '', displayNameSearchField: $dnsf, filter : 'CommunityContrib'}), " +
+				"(c)<-[:DEPENDS]-(cm:CommunityGroup:Group:Visible {name : c.name + '-manager', type : 'manager', users : '', displayNameSearchField: $dnsf, filter : 'CommunityManager'}) " +
 				"SET cr.id = id(cr)+'-'+timestamp(), " +
 				"cc.id = id(cc)+'-'+timestamp(), cm.id = id(cm)+'-'+timestamp(), cc.communiqueWith = [cm.id,cr.id], cm.communiqueWith = [cc.id,cr.id] " +
 				"WITH c, cm, cr, cc " +
-				"MATCH (u:User {id : {userId}}) " +
-				"CREATE u-[:IN]->cm, u-[:COMMUNIQUE]->cm, " +
-				"cc-[:COMMUNIQUE]->cr, cc-[:COMMUNIQUE]->cm, " +
-				"cm-[:COMMUNIQUE]->cr, cm-[:COMMUNIQUE]->cc " +
+				"MATCH (u:User {id : $userId}) " +
+				"CREATE (u)-[:IN]->(cm), (u)-[:COMMUNIQUE]->(cm), " +
+				"(cc)-[:COMMUNIQUE]->(cr), (cc)-[:COMMUNIQUE]->(cm), " +
+				"(cm)-[:COMMUNIQUE]->(cr), (cm)-[:COMMUNIQUE]->(cc) " +
 				"RETURN c.id as id, cr.id as read, cc.id as contrib, cm.id as manager";
 		final String dnsf = (data.getString("name") != null ? sanitize(data.getString("name")) : "");
 		JsonObject params = new JsonObject()
@@ -79,13 +79,13 @@ public class DefaultCommunityService implements CommunityService {
 		String name = data.getString("name");
 		String query;
 		if (name != null && !name.trim().isEmpty()) {
-			query = "MATCH (c:Community { id : {id}})<-[:DEPENDS]-(g:CommunityGroup) " +
+			query = "MATCH (c:Community { id : $id})<-[:DEPENDS]-(g:CommunityGroup) " +
 					"SET " + nodeSetPropertiesFromJson("c", data) +
-					", g.name = {name} + '-' + LAST(SPLIT(g.name, '-')), g.displayNameSearchField = {dnsf} " +
+					", g.name = $name + '-' + LAST(SPLIT(g.name, '-')), g.displayNameSearchField = $dnsf " +
 					"RETURN DISTINCT c.id as id, c.pageId as pageId";
 			data.put("dnsf", sanitize(name));
 		} else {
-			query = "MATCH (c:Community { id : {id}}) " +
+			query = "MATCH (c:Community { id : $id}) " +
 					"SET " + nodeSetPropertiesFromJson("c", data) + " " +
 					"RETURN c.id as id";
 		}
@@ -105,10 +105,10 @@ public class DefaultCommunityService implements CommunityService {
 	public void delete(String id, Handler<Either<String, JsonObject>> handler) {
 		StatementsBuilder sb = new StatementsBuilder();
 		JsonObject params = new JsonObject().put("id", id);
-		sb.add("MATCH (c:Community { id : {id}}) RETURN c.pageId as pageId", params);
+		sb.add("MATCH (c:Community { id : $id}) RETURN c.pageId as pageId", params);
 		String query =
-				"MATCH (c:Community { id : {id}})<-[r:DEPENDS]-(g:CommunityGroup) " +
-				"OPTIONAL MATCH g<-[r2:IN|COMMUNIQUE]-() " +
+				"MATCH (c:Community { id : $id})<-[r:DEPENDS]-(g:CommunityGroup) " +
+				"OPTIONAL MATCH (g)<-[r2:IN|COMMUNIQUE]-() " +
 				"DELETE c, r, g, r2 ";
 		sb.add(query, params);
 		neo4j.executeTransaction(sb.build(), null, true, validUniqueResultHandler(0, handler));
@@ -117,7 +117,7 @@ public class DefaultCommunityService implements CommunityService {
 	@Override
 	public void list(UserInfos user, Handler<Either<String, JsonArray>> handler) {
 		String query =
-				"MATCH (u:User {id : {userId}})-[:IN]->(g:CommunityGroup)-[:DEPENDS]->(c:Community) " +
+				"MATCH (u:User {id : $userId})-[:IN]->(g:CommunityGroup)-[:DEPENDS]->(c:Community) " +
 				"RETURN c.id as id, c.name as name, c.description as description, " +
 				"c.icon as icon, c.pageId as pageId, COLLECT(g.type) as types, COLLECT(distinct {id: g.id, type: g.type, name: g.name}) as groups ";
 		JsonObject params = new JsonObject().put("userId", user.getUserId());
@@ -127,7 +127,7 @@ public class DefaultCommunityService implements CommunityService {
 	@Override
 	public void get(String id, UserInfos user, Handler<Either<String,JsonObject>> handler) {
 		String query =
-				"MATCH (u:User {id : {userId}})-[:IN]->(g:CommunityGroup)-[:DEPENDS]->(c:Community {id: {id}}) " +
+				"MATCH (u:User {id : $userId})-[:IN]->(g:CommunityGroup)-[:DEPENDS]->(c:Community {id: $id}) " +
 				"RETURN c.id as id, c.name as name, c.description as description, " +
 				"c.icon as icon, c.pageId as pageId, COLLECT(g.type) as types, COLLECT(distinct {id: g.id, type: g.type, name: g.name}) as groups ";
 		JsonObject params = new JsonObject().put("userId", user.getUserId()).put("id", id);
@@ -137,7 +137,7 @@ public class DefaultCommunityService implements CommunityService {
 	@Override
 	public void get(String id, Handler<Either<String,JsonObject>> handler) {
 		String query =
-				"MATCH (c:Community {id: {id}})-[:DEPENDS]-(g:CommunityGroup) " +
+				"MATCH (c:Community {id: $id})-[:DEPENDS]-(g:CommunityGroup) " +
 				"RETURN c.id as id, c.name as name, c.description as description, " +
 				"c.icon as icon, c.pageId as pageId, COLLECT(g.type) as types, " +
 				"COLLECT(distinct {id: g.id, type: g.type, name: g.name}) as groups ";
@@ -157,26 +157,26 @@ public class DefaultCommunityService implements CommunityService {
 
 		//delete all relation and recreate
 		final String deleteQuery =
-				"MATCH (c:Community {id : {id}})<-[:DEPENDS]-(:CommunityGroup)<-[r:IN|COMMUNIQUE]-(u:User) " +
-						"WHERE u.id IN {delete} " +
+				"MATCH (c:Community {id : $id})<-[:DEPENDS]-(:CommunityGroup)<-[r:IN|COMMUNIQUE]-(u:User) " +
+						"WHERE u.id IN $delete " +
 						"DELETE r";
 		sb.add(deleteQuery, params.copy().put("delete", new JsonArray(new ArrayList<Object>(allUser))));
 
 		final String query =
-				"MATCH (c:Community {id : {id}})<-[:DEPENDS]-(g:CommunityGroup {type: {type}}), (u:User) " +
-						"WHERE u.id IN {users} " +
-						"CREATE UNIQUE g<-[:IN]-u";
+				"MATCH (c:Community {id : $id})<-[:DEPENDS]-(g:CommunityGroup {type: $type}), (u:User) " +
+						"WHERE u.id IN $users " +
+						"MERGE (g)<-[:IN]-(u)";
 
 		users.remove("delete");
 		for (String attr : users.fieldNames()) {
 			String q = ("contrib".equals(attr) || "manager".equals(attr)) ?
-					query + ", g<-[:COMMUNIQUE]-u" : query;
+					query + " MERGE (g)<-[:COMMUNIQUE]-(u)" : query;
 			sb.add(q, params.copy().put("type", attr).put("users", users.getJsonArray(attr)));
 		}
-		final String query0 = "MATCH (c:Community {id : {id}})<-[:DEPENDS]-(g:CommunityGroup) SET g.nbUsers = 0;";
+		final String query0 = "MATCH (c:Community {id : $id})<-[:DEPENDS]-(g:CommunityGroup) SET g.nbUsers = 0;";
 		sb.add(query0, params);
 		final String queryNb =
-				"MATCH (c:Community {id : {id}})<-[:DEPENDS]-(g:CommunityGroup)<-[:IN]-(u:User) " +
+				"MATCH (c:Community {id : $id})<-[:DEPENDS]-(g:CommunityGroup)<-[:IN]-(u:User) " +
 				"WITH g, count(distinct u) as cu " +
 				"SET g.nbUsers = cu;";
 		sb.add(queryNb, params);
@@ -186,7 +186,7 @@ public class DefaultCommunityService implements CommunityService {
 	@Override
 	public void listUsers(String id, final JsonArray types, final Handler<Either<String, JsonObject>> handler) {
 		String query =
-				"MATCH (:Community {id: {id}})<-[:DEPENDS]-(:CommunityGroup {type : {type}})<-[:IN]-(u:User) " +
+				"MATCH (:Community {id: $id})<-[:DEPENDS]-(:CommunityGroup {type : $type})<-[:IN]-(u:User) " +
 				"RETURN u.id as id, u.displayName as displayName ";
 		JsonObject params = new JsonObject().put("id", id);
 		StatementsBuilder sb = new StatementsBuilder();

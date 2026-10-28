@@ -56,10 +56,10 @@ public class CommunityRepositoryEvents extends PagesRepositoryEvents {
         //FIXME: anonymization is not relevant
         // Users are already deleted in Graph - Control and delete communities with no managers
 		JsonObject params = new JsonObject().put("type", "manager");
-		String query = "MATCH (c:Community)<-[:DEPENDS]-(gm:CommunityGroup {type : {type}}) "
-					 + "OPTIONAL MATCH gm<-[:IN]-(um:User) "
+		String query = "MATCH (c:Community)<-[:DEPENDS]-(gm:CommunityGroup {type : $type}) "
+					 + "OPTIONAL MATCH (gm)<-[:IN]-(um:User) "
 					 + "WITH c, c.pageId as pageId, gm, COUNT(um) AS managers WHERE managers = 0 "
-					 + "OPTIONAL MATCH c<-[:DEPENDS]-(g:CommunityGroup) "
+					 + "OPTIONAL MATCH (c)<-[:DEPENDS]-(g:CommunityGroup) "
 					 + "DETACH DELETE c, g "
 					 + "RETURN DISTINCT pageId";
 		neo4j.execute(query, params, validResultHandler(new Handler<Either<String, JsonArray>>(){

@@ -39,8 +39,8 @@ public abstract class BaseCommunityFilter implements ResourcesProvider {
 			return;
 		}
 		String query =
-				"MATCH (:Community {id : {id}})<-[:DEPENDS]-(:CommunityGroup {type : {type}})" +
-				"<-[:IN]-(:User { id : {userId}}) " +
+				"MATCH (:Community {id : $id})<-[:DEPENDS]-(:CommunityGroup {type : $type})" +
+				"<-[:IN]-(:User { id : $userId}) " +
 				"RETURN COUNT(*) > 0 as exists ";
 		JsonObject params = new JsonObject()
 				.put("id", id)
