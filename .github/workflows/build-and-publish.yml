@@ -33,13 +33,12 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      # --- Frontend (Gulp 3 / Webpack 1 / TypeScript) ---
-      # Le frontend de ce module historique Atos se build avec Gulp 3.9.1,
-      # qui n'est compatible qu'avec Node <= 10 (erreur "primordials is not defined"
-      # sur Node >= 12). docker-compose.yml epingle d'ailleurs node:10-alpine.
+      # --- Frontend (Gulp 5 / Webpack 1 via webpack-stream / TypeScript) ---
+      # Le frontend de ce module historique Atos tournait sous Gulp 3.9.1 (Node <= 10) ;
+      # passé à Gulp 5, il se construit sous Node 26 comme le sous-projet React.
       - uses: actions/setup-node@v7
         with:
-          node-version: '10'
+          node-version: 26
 
       - name: Install frontend dependencies
         run: npm install
@@ -48,11 +47,11 @@ jobs:
         run: node_modules/gulp/bin/gulp.js build
 
       # [B] IHM React (vue *-react.html -> /community/public/index.js) : sous-projet Vite frontend/
-      # (Node 20, on rebascule depuis Node 10). Paquets prives @open-ent -> auth OPENENT_PACKAGES_TOKEN.
+      # (Node 26). Paquets prives @open-ent -> auth OPENENT_PACKAGES_TOKEN.
       # Job unique -> la copie dans resources/public est directement packagee par Maven (fat-mod complet).
       - uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: 26
       - uses: pnpm/action-setup@v6
         with:
           version: 10
@@ -70,10 +69,10 @@ jobs:
           mkdir -p ../src/main/resources/public
           cp -r dist/public/. ../src/main/resources/public/
 
-      # --- Backend (Maven, Java 8) ---
+      # --- Backend (Maven, JDK 25) ---
       - uses: actions/setup-java@v6
         with:
-          java-version: '21'
+          java-version: '25'
           distribution: temurin
           cache: maven
 
@@ -138,14 +137,24 @@ jobs:
           # (checkout shallow/detache) -> on injecte explicitement commit et branche
           # pour remplir SCM-Commit-Id / SCM-Branch du MANIFEST.
           # -Dmaven.test.skip=true (pas -DskipTests) : évite la compilation des tests, qui crashe
-          # sous JDK 21 via maven-scala-plugin:2.15.2 hérité d'app-parent (testCompile scala).
+          # sous les JDK récents via maven-scala-plugin:2.15.2 hérité d'app-parent (testCompile scala).
           mvn clean package -Dmaven.test.skip=true -B -DbuildNumber=${GITHUB_SHA::8} -DscmBranch=${GITHUB_REF_NAME} \
             -DbuildNumber="${GITHUB_SHA::8}" -DscmBranch="${GITHUB_REF_NAME}"
+
+      # Depuis le JDK 23, javac n'exécute plus les processeurs d'annotations trouvés sur le
+      # classpath : sans `-proc:full` (pom), le jar part sans securedaction/ ni routes/, et
+      # chaque route sécurisée répond 404 — sans aucune erreur de build.
+      - name: Verify annotation metadata
+        run: |
+          FAT_JAR=$(ls target/*-fat.jar | head -1)
+          for d in securedaction routes; do
+            unzip -Z1 "$FAT_JAR" | grep -q "^$d/" || { echo "::error::$d/ absent de $FAT_JAR"; exit 1; }
+          done
 
       - name: Run tests
         if: github.event_name == 'pull_request'
         # profil `scala` d'app-parent désactivé : maven-scala-plugin 2.15.2 ne lit pas le
-        # bytecode du JDK 21, et aucun module applicatif n'a de source Scala.
+        # bytecode des JDK récents, et aucun module applicatif n'a de source Scala.
         run: mvn test -B -P '!scala'
 
       - name: Configure Maven for GitHub Packages
