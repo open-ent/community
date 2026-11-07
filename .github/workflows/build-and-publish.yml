@@ -31,12 +31,12 @@ jobs:
     name: Build & Publish Fat Mod
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       # --- Frontend (Gulp 5 / Webpack 1 via webpack-stream / TypeScript) ---
       # Le frontend de ce module historique Atos tournait sous Gulp 3.9.1 (Node <= 10) ;
       # passé à Gulp 5, il se construit sous Node 26 comme le sous-projet React.
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 26
 
@@ -49,10 +49,10 @@ jobs:
       # [B] IHM React (vue *-react.html -> /community/public/index.js) : sous-projet Vite frontend/
       # (Node 26). Paquets prives @open-ent -> auth OPENENT_PACKAGES_TOKEN.
       # Job unique -> la copie dans resources/public est directement packagee par Maven (fat-mod complet).
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 26
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6
         with:
           version: 10
       - name: Build frontend React (sous-projet Vite frontend/)
